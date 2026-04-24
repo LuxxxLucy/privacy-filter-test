@@ -3,8 +3,11 @@ name = "privacy-filter-test"
 version = "0.1.0"
 description = "Benchmark OpenAI privacy-filter vs Presidio + AI4Privacy on English and Chinese PII."
 requires-python = ">=3.10"
+# torch upper-bounded below 2.7 so uv resolves cu124 wheels, which work with
+# NVIDIA drivers reporting CUDA 12.4+ (matches the qwen3guard-test 3090 box).
+# torch 2.7+ ships cu126, 2.8+ ships cu128 — both need newer drivers.
 dependencies = [
-    "torch>=2.4",
+    "torch>=2.5,<2.7",
     "transformers>=4.46",
     "datasets>=3.0",
     "accelerate>=1.0",
