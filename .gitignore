@@ -7,3 +7,4 @@ results/*.json
 results/*.jsonl
 results/raw/
 .hf_cache/
+.cache/
