@@ -21,19 +21,14 @@ if [ -z "${REQUESTS_CA_BUNDLE:-}" ]; then
     done
 fi
 
-# spaCy model wheels — not on PyPI; only available on Explosion's GitHub releases.
-SPACY_VER="3.8.0"
-mkdir -p .cache/wheels
+# spaCy models via HF mirror (Explosion publishes to spacy/<model>).
+# Avoids GitHub release URLs which redirect to release-assets.githubusercontent.com
+# → Azure blob — that handshake fails on some corporate proxies.
+mkdir -p .cache/spacy
 for m in en_core_web_lg zh_core_web_lg; do
-    whl=".cache/wheels/${m}-${SPACY_VER}-py3-none-any.whl"
-    if [ ! -f "$whl" ]; then
-        echo "# curl -> ${m}-${SPACY_VER}.whl"
-        # -C - resumes partials; --retry covers transient proxy throttles.
-        curl -fL --retry 5 --retry-delay 5 -C - -o "$whl" \
-            "https://github.com/explosion/spacy-models/releases/download/${m}-${SPACY_VER}/${m}-${SPACY_VER}-py3-none-any.whl"
-    fi
+    echo "# hf model -> spacy/${m}"
+    uv run hf download "spacy/${m}" --local-dir ".cache/spacy/${m}" >/dev/null
 done
-uv pip install --no-deps .cache/wheels/*.whl
 
 # HF models.
 for m in openai/privacy-filter \

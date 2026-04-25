@@ -7,12 +7,17 @@ LOC / ORG) flows through.
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 import torch
 from presidio_analyzer import AnalyzerEngine, Pattern, PatternRecognizer, RecognizerRegistry
 from presidio_analyzer.nlp_engine import NlpEngineProvider
 from presidio_analyzer.predefined_recognizers import SpacyRecognizer
 
 from ..crosswalk import PRESIDIO_MAP, coarsen
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+SPACY_ZH_PATH = REPO_ROOT / ".cache" / "spacy" / "zh_core_web_lg"
 
 CN_MOBILE = PatternRecognizer(
     supported_entity="CN_MOBILE",
@@ -46,7 +51,7 @@ class PresidioZH:
         self.device = device
         cfg = {
             "nlp_engine_name": "spacy",
-            "models": [{"lang_code": "zh", "model_name": "zh_core_web_lg"}],
+            "models": [{"lang_code": "zh", "model_name": str(SPACY_ZH_PATH)}],
         }
         provider = NlpEngineProvider(nlp_configuration=cfg)
         nlp_engine = provider.create_engine()
