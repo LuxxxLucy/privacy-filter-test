@@ -17,8 +17,6 @@ dependencies = [
     "numpy>=1.26",
     "tqdm>=4.66",
     "huggingface-hub>=0.25",
-    "en_core_web_lg @ https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.8.0/en_core_web_lg-3.8.0-py3-none-any.whl",
-    "zh_core_web_lg @ https://github.com/explosion/spacy-models/releases/download/zh_core_web_lg-3.8.0/zh_core_web_lg-3.8.0-py3-none-any.whl",
 ]
 
 [project.optional-dependencies]
@@ -27,9 +25,6 @@ dev = ["matplotlib>=3.8"]
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
-
-[tool.hatch.metadata]
-allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src"]

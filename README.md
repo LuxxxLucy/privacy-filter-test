@@ -5,8 +5,8 @@ Benchmark OpenAI's `openai/privacy-filter` against Microsoft Presidio and AI4Pri
 ## Setup
 
 ```sh
-uv sync                              # installs deps + spaCy en/zh wheels
-uv run python scripts/download.py    # pre-fetch HF models + datasets
+uv sync
+./scripts/download.sh    # curl spaCy wheels + hf download for models/datasets
 ```
 
 ## Run

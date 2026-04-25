@@ -1,7 +1,9 @@
 """Presidio adapter — Chinese.
 
-Default Presidio has no zh recognizer pack. We register zh_core_web NLP engine
-plus three custom regex recognizers: 手机号 / 身份证号 / 银行卡号.
+Default Presidio has no zh recognizer pack. We register a zh NLP engine
+plus three custom regex recognizers: 手机号 / 身份证号 / 银行卡号, and a
+manually-registered SpacyRecognizer so spaCy zh NER (PERSON / GPE / DATE /
+LOC / ORG) flows through.
 """
 from __future__ import annotations
 
@@ -49,9 +51,6 @@ class PresidioZH:
         provider = NlpEngineProvider(nlp_configuration=cfg)
         nlp_engine = provider.create_engine()
         registry = RecognizerRegistry(supported_languages=["zh"])
-        # Presidio's load_predefined_recognizers has no zh pack; register
-        # SpacyRecognizer manually so spaCy zh NER (PERSON / GPE / LOC / ORG /
-        # DATE) flows through, plus our three custom regex recognizers.
         registry.add_recognizer(SpacyRecognizer(supported_language="zh"))
         for r in (CN_MOBILE, CN_ID_CARD, CN_BANK_CARD):
             registry.add_recognizer(r)
