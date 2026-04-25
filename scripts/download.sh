@@ -28,7 +28,8 @@ for m in en_core_web_lg zh_core_web_lg; do
     whl=".cache/wheels/${m}-${SPACY_VER}-py3-none-any.whl"
     if [ ! -f "$whl" ]; then
         echo "# curl -> ${m}-${SPACY_VER}.whl"
-        curl -fL -o "$whl" \
+        # -C - resumes partials; --retry covers transient proxy throttles.
+        curl -fL --retry 5 --retry-delay 5 -C - -o "$whl" \
             "https://github.com/explosion/spacy-models/releases/download/${m}-${SPACY_VER}/${m}-${SPACY_VER}-py3-none-any.whl"
     fi
 done
