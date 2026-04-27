@@ -19,7 +19,11 @@ import torch
 from .device import pick_device
 from .systems import openai_pf
 
-LENGTHS = [64, 256, 1024, 4096, 16384]
+# 16384 is omitted from the default sweep: the model's attention is eager-only
+# (_supports_sdpa = False; sink-token concat), so memory grows as O(L^2) and a
+# 16k forward pass exceeds 24 GB. Pass --lengths explicitly to opt back in on
+# larger GPUs.
+LENGTHS = [64, 256, 1024, 4096]
 
 PII_BITS = [
     "Alice Smith works at alice.smith@example.com.",
