@@ -16,8 +16,9 @@ Findings:
    When PII is ASCII-shaped (emails, +86 phone numbers, alphanumeric account numbers), the model wins (0.64 relaxed) by a wide margin.
    When PII is bare Chinese narrative (Han names, Chinese place names with no English scaffolding), it collapses to 0.04 against Chinese-NER baselines that score 0.68 and 0.71.
 4. Latency on RTX 3090 is 222–418 ms P50 across 64 to 4096 input tokens, batch=1, BF16.
-   That is roughly 5× a dense Qwen3Guard-Gen-0.6B at comparable length, despite the "50M active" MoE claim.
-   The reason is architectural: the model uses dense banded attention with attention sinks and ships an eager-only kernel, so the active-parameter saving applies only to the FFN.
+   The "50M active" MoE saving applies only to the FFN.
+   Attention is dense banded with sink-token concat in the kernel, eager-only (`_supports_sdpa = False`), so the per-token cost stays dominated by the dense attention path.
+   At 16,384 tokens the eager kernel does not fit on a 24 GB GPU.
 
 # 1. Background
 
@@ -282,33 +283,17 @@ P50 / P99 latency on RTX 3090 across input lengths (BF16, batch=1, 100 timed ite
 | 1024 | 298.0 | 312.3 | 315.1 | 301.3 |
 | 4096 | 417.6 | 426.4 | 430.2 | 419.0 |
 
-Three observations:
+Two observations:
 
-1. **The "50M active" MoE claim does not translate to latency in the typical regime.**
-   Privacy Filter at 1024 tokens is 298 ms P50.
-   Qwen3Guard-Gen-0.6B with single-forward-pass classification at 1024 tokens is 57 ms P50 on the same hardware ([Q3G-Gen]).
-   The dense-but-smaller model is roughly 5× faster than the larger MoE for one-shot classification.
-2. **Why active-params doesn't buy speed here.**
+1. **The "50M active" MoE saving applies only to the FFN.**
    The 50M active count is FFN-only (top-4 of 128 experts per token).
-   Attention is dense banded with sink-token concat in the kernel, eager-only; the kernel materialises the full L×L attention matrix per layer.
+   Attention is dense banded with sink-token concat in the kernel; the kernel materialises the full L×L attention matrix per layer.
    For short to medium inputs the attention cost dominates the FFN saving.
-   For long inputs the attention cost grows quadratically and SDPA / flash-attention are not available because the modeling code declares `_supports_sdpa = False` (the sink-token concatenation in the attention kernel is not compatible with the standard SDPA path).
-3. **Why 16,384 is missing from the table.**
+   SDPA and flash-attention are not available because the modeling code declares `_supports_sdpa = False` (the sink-token concatenation is not compatible with the standard SDPA path), so the eager kernel is the only path.
+2. **16,384 tokens does not fit on a 24 GB 3090.**
    The eager kernel allocates a 16k×16k attention matrix per head with sinks concatenated.
-   On 24 GB of 3090 VRAM that does not fit (allocation request ~14 GB plus the 11 GB the model already occupies).
-   Larger GPUs can opt back in via the `--lengths` CLI override; on 3090, 4,096 is the practical ceiling for this build of the model.
-
-Compared to the Qwen3Guard-Gen-0.6B reference numbers ([Q3G-Gen]):
-
-| Input tokens | Privacy Filter P50 (ms) | Q3G-Gen 0.6B optimized P50 (ms) | ratio |
-|---:|---:|---:|---:|
-| 64 | 222 | 29 | ~7.7× |
-| 256 | 279 | 38 | ~7.3× |
-| 1024 | 298 | 58 | ~5.1× |
-| 4096 | 418 | 322 | ~1.3× |
-
-The ratio narrows at 4096 because both models become attention-bound there.
-At gateway-typical input (256–1024 tokens) Privacy Filter is 5–7× the latency of a dense 0.6B classifier optimized for prefill-only inference.
+   On 24 GB the allocation request (~14 GB) plus the 11 GB the model occupies exceeds VRAM.
+   Larger GPUs can opt back in via the `--lengths` CLI override; on 3090, 4,096 is the practical ceiling.
 
 # 6. Conclusion
 
@@ -319,9 +304,8 @@ At gateway-typical input (256–1024 tokens) Privacy Filter is 5–7× the laten
    ASCII-shaped PII embedded in Chinese text transfers (synth_zh, 0.64).
    Bare Chinese narrative PII does not (peoples_daily_zh, 0.04 vs 0.71 for a Chinese-NER baseline).
    For a deployment that needs Chinese name and place coverage, Privacy Filter must be paired with a Chinese-native NER, not run alone.
-4. At gateway latency budgets, the model is 5–7× slower than a dense 0.6B classifier such as Qwen3Guard-Gen on 3090.
-   The MoE active-parameter saving applies only to the FFN.
-   Attention is dense and eager-only, with no SDPA path available.
+4. Latency on 3090 is 222–418 ms P50 across 64–4096 input tokens, batch=1, BF16.
+   The MoE active-parameter saving applies only to the FFN; attention is dense banded and eager-only, with no SDPA path available.
    Inputs above 4,096 tokens do not run on a 24 GB 3090.
 5. Two pieces of headroom remain:
    - The constrained Viterbi decoder with operating-point calibration is documented in the model card but not implemented in our pipeline.
@@ -350,8 +334,6 @@ At gateway-typical input (256–1024 tokens) Privacy Filter is 5–7× the laten
 [PD-Data] *peoples_daily_ner.* Hugging Face Datasets. <https://huggingface.co/datasets/peoples-daily-ner/peoples_daily_ner>. CoNLL-format PER/LOC/ORG over People's Daily news.
 
 [B4-Model] shibing624. *bert4ner-base-chinese.* Hugging Face. <https://huggingface.co/shibing624/bert4ner-base-chinese>. BERT-base 100M, PER/LOC/ORG.
-
-[Q3G-Gen] Qwen3Guard-Gen Performance Report. Companion document, this workspace. The 0.6B optimized-path P50 numbers used for the latency comparison.
 
 [3090] NVIDIA. *GeForce RTX 3090, product specifications.* <https://www.nvidia.com/en-us/geforce/graphics-cards/30-series/rtx-3090-3090ti/>. 24 GB GDDR6X, ~936 GB/s peak memory bandwidth.
 
