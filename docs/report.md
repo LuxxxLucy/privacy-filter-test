@@ -4,7 +4,7 @@
 
 # Introduction
 
-OpenAI Privacy Filter is a 1.5B-parameter (50M active) bidirectional token classifier for PII span detection, released October 2025 under Apache 2.0.
+OpenAI Privacy Filter is a 1.5B-parameter (50M active) bidirectional token classifier for PII span detection, released April 2026 under Apache 2.0.
 This report measures it on four held-out datasets (two English, two Chinese) against two baselines per language track, plus a length-vs-latency sweep on an RTX 3090.
 
 Findings:
@@ -33,7 +33,7 @@ The candidate field for in-process PII span detection has three tiers:
 - **Small fine-tuned classifiers.**
   `ai4privacy/llama-ai4privacy-english-anonymiser-openpii` is a ModernBERT-100M binary detector trained on the AI4Privacy corpus.
 - **Larger trained-for-the-task classifiers.**
-  OpenAI Privacy Filter is the Apache 2.0 entry in this tier as of October 2025: 1.5B parameters with MoE routing, native BIOES head over an 8-category PII taxonomy, 128k context, BF16 ~3 GB on disk.
+  OpenAI Privacy Filter is the Apache 2.0 entry in this tier as of April 2026: 1.5B parameters with MoE routing, native BIOES head over an 8-category PII taxonomy, 128k context, BF16 ~3 GB on disk.
   See [PF-Card] for the model card and [PF-Repo] for the source.
 
 Two facts shape what we test:
@@ -331,7 +331,7 @@ At gateway-typical input (256–1024 tokens) Privacy Filter is 5–7× the laten
 
 # References
 
-[PF-Card] OpenAI. *Privacy Filter, model card.* Hugging Face, October 2025. <https://huggingface.co/openai/privacy-filter>. Apache 2.0.
+[PF-Card] OpenAI. *Privacy Filter, model card.* Hugging Face, April 2026. <https://huggingface.co/openai/privacy-filter>. Apache 2.0.
 
 [PF-PDF] OpenAI. *Privacy Filter, Model Card (PDF).* <https://cdn.openai.com/pdf/c66281ed-b638-456a-8ce1-97e9f5264a90/OpenAI-Privacy-Filter-Model-Card.pdf>.
 
