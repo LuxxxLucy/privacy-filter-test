@@ -93,6 +93,9 @@ BERT4NER_MAP = {
 }
 
 # Gretel synthetic_pii_finance_multilingual entity labels → OpenAI 8.
+# Label inventory verified against the actual `pii_spans` field on the
+# English test split (e.g. `time`/`date_time` exist; `bank_routing_number`
+# is spelled with the `bank_` prefix; `passport_number` not `passport`).
 GRETEL_MAP = {
     "name": "person",
     "first_name": "person",
@@ -100,6 +103,8 @@ GRETEL_MAP = {
     "email": "email",
     "phone_number": "phone",
     "url": "url",
+    "ipv4": "url",
+    "ipv6": "url",
     "address": "address",
     "street_address": "address",
     "city": "address",
@@ -108,23 +113,42 @@ GRETEL_MAP = {
     "zipcode": "address",
     "date": "date",
     "date_of_birth": "date",
+    "date_time": "date",
+    "time": "date",
     "credit_card_number": "account_number",
     "iban": "account_number",
     "swift_bic_code": "account_number",
     "bban": "account_number",
     "routing_number": "account_number",
+    "bank_routing_number": "account_number",
     "account_number": "account_number",
     "passport": "secret",
+    "passport_number": "secret",
     "ssn": "secret",
     "driver_license_number": "secret",
     "api_key": "secret",
     "password": "secret",
+    "account_pin": "secret",
+    "credit_card_security_code": "secret",
     "company": None,
     "job_title": None,
+    "customer_id": None,
+    "employee_id": None,
+    "user_name": None,
+    "local_latlng": None,
 }
 
-# AI4Privacy 400k privacy_mask labels (mostly same as the 21-label set above).
-AI4PRIVACY_400K_MAP = {**AI4PRIVACY_MAP, "USERNAME": None, "IP": "url"}
+# AI4Privacy 400k privacy_mask labels. Verified against the actual gold:
+# the dataset uses DATEOFBIRTH (not DATE), ACCOUNTNUM (not ACCOUNT_NUMBER),
+# and a literal PASSWORD label that the 21-label parent map omits.
+AI4PRIVACY_400K_MAP = {
+    **AI4PRIVACY_MAP,
+    "USERNAME": None,
+    "IP": "url",
+    "DATEOFBIRTH": "date",
+    "ACCOUNTNUM": "account_number",
+    "PASSWORD": "secret",
+}
 
 # peoples_daily_ner (CoNLL): PER / LOC / ORG.
 PEOPLES_DAILY_MAP = {"PER": "person", "LOC": "address", "ORG": None}
