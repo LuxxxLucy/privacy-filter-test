@@ -12,25 +12,25 @@ Findings:
 
 1. On English finance text held out from training, Privacy Filter is the strongest of three systems at relaxed micro F1 0.49, ahead of Presidio (0.41) and a [ModernBERT-100M binary detector](https://huggingface.co/ai4privacy/llama-ai4privacy-english-anonymiser-openpii) (0.24).
 2. The 96% F1 on the [model card](https://huggingface.co/openai/privacy-filter) is largely a training-set artifact: it is measured on [pii-masking-300k](https://huggingface.co/datasets/ai4privacy/pii-masking-300k), which is in the model's training corpus. On the leakage-clean validation sibling [pii-masking-400k](https://huggingface.co/datasets/ai4privacy/pii-masking-400k), we measure 0.40.
-3. On Chinese, performance splits along PII *format*, not language. ASCII-shaped PII (emails, +86 phones, alphanumeric account numbers) embedded in Chinese text: Privacy Filter wins at 0.64 relaxed. Bare Chinese narrative (Han names, Chinese place names): Privacy Filter collapses to 0.04, against [bert4ner-base-chinese](https://huggingface.co/shibing624/bert4ner-base-chinese) at 0.71.
+3. On Chinese, performance splits along PII *format*, not language. For ASCII-shaped PII (emails, +86 phones, alphanumeric account numbers) embedded in Chinese text, Privacy Filter wins at 0.64 relaxed. For Chinese words (Han names, Chinese place names), Privacy Filter collapses to 0.04, while [bert4ner-base-chinese](https://huggingface.co/shibing624/bert4ner-base-chinese) (which pretrains with Chinese) is at 0.71.
 4. Latency on RTX 3090 is 222–418 ms P50 across 64–4,096 input tokens, BF16 batch=1. The "50M active" MoE saving is FFN-only; attention is dense banded with sink-token concat, eager-only (`_supports_sdpa = False`), so it dominates wall-clock. 16,384 tokens does not fit on 24 GB.
 
 # 1. Background
 
 The gateway sits between end users and a hosted LLM. One feature of its Output Security Engine is **PII span detection**: identify spans of personally identifiable information so that downstream policy can mask, redact, or block them. This document evaluates Privacy Filter as a building block for that feature.
 
-Three tiers of candidate:
+We comapre three candidate:
 
 - **Rule baseline.** [Microsoft Presidio](https://microsoft.github.io/presidio/) (regex + spaCy NER), permissive license, deterministic.
 - **Small fine-tuned classifier.** [`llama-ai4privacy-english-anonymiser-openpii`](https://huggingface.co/ai4privacy/llama-ai4privacy-english-anonymiser-openpii), a ModernBERT-100M binary detector trained on the AI4Privacy corpus.
-- **Larger trained-for-the-task classifier.** Privacy Filter is the Apache 2.0 entry in this tier as of April 2026: 1.5B parameters with MoE routing, native BIOES head over an 8-category PII taxonomy, 128k context, BF16 ~3 GB on disk.
+- **Larger trained-for-the-task classifier.** Privacy Filter has 1.5B parameters with MoE routing, native BIOES head over an 8-category PII taxonomy, 128k context, BF16 ~3 GB on disk.
 
-Two facts shape what we test:
+Notes:
 
 - The training corpus is "primarily English" per the model card. Cross-lingual robustness is reported as a "selected multilingual evaluation" without details, so Chinese is not declared coverage.
-- The 96% F1 headline is on `pii-masking-300k`, which is the AI4Privacy corpus Privacy Filter is trained on. We treat that figure as in-distribution training-set performance and measure on different data.
+- The 96% F1 headline is on `pii-masking-300k`, which is the AI4Privacy corpus Privacy Filter is trained on. We treat that figure as in-distribution training-set performance and measure on different data as heldout out-of-distribution tests.
 
-# 2. Subject and how we use it
+# 2. Privacy Filter
 
 ## 2.1 Architecture and label scheme
 
@@ -102,7 +102,7 @@ Relaxed micro F1, full splits:
 | Presidio | 0.405 | 0.299 |
 | AI4Privacy ModernBERT-100M | 0.240 | **0.413** |
 
-Privacy Filter wins on the held-out finance corpus. On `ai4privacy_400k`, the small ModernBERT slightly edges it because that dataset's annotation conventions match what ModernBERT was trained on. The 0.96 → 0.40 drop from `pii-masking-300k` (training set) to `400k` (validation sibling) is the leakage gap, not a generalization gap on a different annotation style.
+Privacy Filter wins on the held-out finance corpus. On `ai4privacy_400k`, the small ModernBERT slightly edges it because that dataset's annotation conventions match what ModernBERT was trained on.
 
 Per-category on gretel (relaxed F1, model vs Presidio):
 
@@ -119,7 +119,7 @@ Per-category on gretel (relaxed F1, model vs Presidio):
 
 Privacy Filter wins on address (Presidio's spaCy `LOCATION` flags cities and countries, not street addresses), person (precision 0.79 vs 0.51, Presidio over-flags company names), and the long-tail identifier categories where Privacy Filter's training covers more formats than Presidio's regex set. Presidio wins on email (a well-formed regex is hard to beat) and date (Privacy Filter is conservative about labelling raw numeric tuples; recall 0.24).
 
-The strict/relaxed gap is large: 0.224 strict vs 0.487 relaxed micro F1 on gretel. The same ≥2× drop appears for every system on every dataset, so the cause is annotation-vs-tokenizer boundary mismatch, not model behaviour. The constrained Viterbi decoder (§2.3) would close some of this gap.
+The strict/relaxed gap is large: 0.224 strict vs 0.487 relaxed micro F1 on gretel. The same ≥2× drop appears for every system on every dataset, so the cause is annotation-vs-tokenizer boundary mismatch. The constrained Viterbi decoder (§2.3) could have close some of this gap.
 
 ## 4.2 Chinese
 
@@ -178,7 +178,7 @@ The 50M-active MoE saving is FFN-only (top-4 of 128 experts per token). Attentio
 2. The 0.96 model-card F1 is in-distribution; the leakage-clean reading on the validation sibling is 0.40 relaxed.
 3. Cross-lingual generalization follows PII format, not natural language. ASCII-shaped PII embedded in Chinese transfers (synth_zh, 0.64). Bare Chinese narrative does not (peoples_daily_zh, 0.04 vs 0.71 for a Chinese-NER baseline). For deployments needing Chinese name and place coverage, Privacy Filter must be paired with a Chinese-native NER, not run alone.
 4. Latency on 3090 is 222–418 ms P50 across 64–4,096 input tokens. The MoE active-parameter saving is FFN-only; attention is dense banded and eager-only, no SDPA. Inputs above 4,096 tokens do not run on a 24 GB 3090.
-5. Two pieces of headroom remain. The constrained Viterbi decoder ([source](https://github.com/openai/privacy-filter)) is documented but not implemented in our pipeline; strict F1 should improve and the precision/recall tradeoff would become tunable. Truncation at 4,096 tokens hurts long-document recall (visible in gretel email recall 0.53); production needs a chunking strategy or larger VRAM.
+5. Two pieces of headroom remain. The constrained Viterbi decoder ([source](https://github.com/openai/privacy-filter)) is documented but not implemented; strict F1 should improve and the precision/recall tradeoff would become tunable. Truncation at 4,096 tokens hurts long-document recall (visible in gretel email recall 0.53); production needs a chunking strategy or larger VRAM.
 
 # References
 
